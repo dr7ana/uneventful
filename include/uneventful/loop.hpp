@@ -12,6 +12,7 @@ extern "C" {
 #include <future>
 #include <list>
 #include <memory>
+#include <queue>
 #include <thread>
 
 namespace unevent {

@@ -1,6 +1,27 @@
 #include "uneventful.hpp"
 
+extern "C" {
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <openssl/types.h>
+}
+
 namespace unevent {
+    using namespace std::chrono_literals;
+
+    namespace detail {
+        const char* current_error() {
+            return ERR_error_string(ERR_get_error(), nullptr);
+        }
+
+        void setup_ssl_library() {
+            OPENSSL_init_ssl(0, NULL);
+            SSL_load_error_strings();
+            OpenSSL_add_all_algorithms();
+            OpenSSL_add_all_ciphers();
+        }
+    }  // namespace detail
+
     static auto setup_libevent_logging() {
 #ifndef NDEBUG
         // event_enable_debug_logging(EVENT_DBG_ALL);
@@ -29,38 +50,6 @@ namespace unevent {
         return timeval{
                 .tv_sec = static_cast<decltype(timeval::tv_sec)>(t / 1s),
                 .tv_usec = static_cast<decltype(timeval::tv_usec)>((t % 1s) / 1us)};
-    }
-
-    static void exec_iterative(int /* fd */, short /* what */, void* user_arg) {
-        try {
-            auto* self = reinterpret_cast<ev_watcher*>(user_arg);
-            if (not self->f) {
-                unlog::critical("Ticker does not have a callback to execute!");
-                return;
-            }
-            if (not self->is_running()) {
-                unlog::critical("Ticker attempting to execute finished event!");
-                return;
-            }
-            // execute callback
-            self->fire();
-        } catch (const std::exception& e) {
-            unlog::critical("EventTicker caught exception: {}", e.what());
-        }
-    }
-
-    static void exec_oneshot(int /* fd */, short /* what */, void* user_arg) {
-        try {
-            auto* self = reinterpret_cast<ev_watcher*>(user_arg);
-            if (not self->f) {
-                unlog::critical("Ticker does not have a callback to execute!");
-                return;
-            }
-            // execute callback
-            self->f();
-        } catch (const std::exception& e) {
-            unlog::critical("Ticker caught exception: {}", e.what());
-        }
     }
 
     bool ev_watcher::start() {

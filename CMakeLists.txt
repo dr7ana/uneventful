@@ -75,6 +75,8 @@ add_subdirectory(external)
 target_link_libraries(unevent 
     PUBLIC 
     
+    un::log
+
     libevent::core
     libevent::extra
     libevent::ssl

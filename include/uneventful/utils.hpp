@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <span>
 
-namespace wshttp {
+namespace unevent {
     using cspan = unlog::cspan;
     using uspan = unlog::uspan;
     using bspan = unlog::bspan;
@@ -14,4 +14,10 @@ namespace wshttp {
     using namespace unlog::literals;
     using namespace un::log::operators;
 
-}  //  namespace wshttp
+    namespace detail {
+        inline std::chrono::steady_clock::time_point get_time() {
+            return std::chrono::steady_clock::now();
+        }
+    }  // namespace detail
+
+}  // namespace unevent
