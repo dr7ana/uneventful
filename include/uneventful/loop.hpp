@@ -190,6 +190,28 @@ namespace un::event {
 
         bool in_event_loop() const { return std::this_thread::get_id() == loop_thread_id; }
 
+        // Similar in concept to std::make_shared<T>, but it creates the shared pointer with a
+        // custom deleter that dispatches actual object destruction to the network's event loop for
+        // thread safety.
+        template <typename T, typename... Args>
+        std::shared_ptr<T> make_shared(Args&&... args) {
+            auto* ptr = new T{std::forward<Args>(args)...};
+            return std::shared_ptr<T>{ptr, loop_deleter<T>()};
+        }
+
+        // Similar to the above make_shared, but instead of forwarding arguments for the
+        // construction of the object, it creates the shared_ptr from the already created object ptr
+        // and wraps the object's deleter in a wrapped_deleter
+        template <typename T, typename Callable>
+        std::shared_ptr<T> shared_ptr(T* obj, Callable&& deleter) {
+            return std::shared_ptr<T>(obj, wrapped_deleter<T>(std::forward<Callable>(deleter)));
+        }
+
+        // invoked in Network destructor by final Network to close shared_ptr
+        void stop_thread(bool immediate = true);
+
+        void stop_tickers(caller_id_t _id);
+
       private:
         template <std::invocable Callable>
         void add_oneshot_event(std::chrono::microseconds delay, Callable hook) {
@@ -227,28 +249,6 @@ namespace un::event {
                 return call_get([f = std::move(func), ptr]() { return f(ptr); });
             };
         }
-
-        // Similar in concept to std::make_shared<T>, but it creates the shared pointer with a
-        // custom deleter that dispatches actual object destruction to the network's event loop for
-        // thread safety.
-        template <typename T, typename... Args>
-        std::shared_ptr<T> make_shared(Args&&... args) {
-            auto* ptr = new T{std::forward<Args>(args)...};
-            return std::shared_ptr<T>{ptr, loop_deleter<T>()};
-        }
-
-        // Similar to the above make_shared, but instead of forwarding arguments for the
-        // construction of the object, it creates the shared_ptr from the already created object ptr
-        // and wraps the object's deleter in a wrapped_deleter
-        template <typename T, typename Callable>
-        std::shared_ptr<T> shared_ptr(T* obj, Callable&& deleter) {
-            return std::shared_ptr<T>(obj, wrapped_deleter<T>(std::forward<Callable>(deleter)));
-        }
-
-        // private method invoked in Network destructor by final Network to close shared_ptr
-        void stop_thread(bool immediate = true);
-
-        void stop_tickers(caller_id_t _id);
 
         template <typename Callable>
         [[nodiscard]] std::shared_ptr<ev_watcher> _call_every(
