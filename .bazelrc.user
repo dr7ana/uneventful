@@ -1,0 +1,11 @@
+# 
+
+common --nolegacy_external_runfiles
+common --repositories_without_autoloads=cc_compatibility_proxy
+build --features=-layering_check
+
+build --action_env=BAZEL_COPTS=""
+
+build --action_env=BAZEL_CXXOPTS="-std=c++23:-lstdc++:-lstdc++exp"
+
+build --action_env=BAZEL_LINKOPTS=""
