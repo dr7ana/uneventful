@@ -62,33 +62,42 @@ if(IPO_ENABLED AND NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 endif()
 
-# external interface target for any general includes meant to be publicly inherited
-add_library(unevent_external INTERFACE)
-target_include_directories(unevent_external INTERFACE include)
+add_library(unevent
 
-# internal interface target for flags, paths, etc
-add_library(unevent_internal INTERFACE)
-target_include_directories(unevent_internal INTERFACE include/unevent)
+    src/loop.cpp
+)
 
-option(WARNINGS_AS_ERRORS "treat all warnings as errors. turn off for development, on for release" OFF)
+target_include_directories(unevent PUBLIC include)
+target_compile_features(unevent PUBLIC cxx_std_23)
+
+add_subdirectory(external)
+
+target_link_libraries(unevent 
+    PUBLIC 
+    
+    libevent::core
+    libevent::extra
+    libevent::ssl
+    libevent::threads
+)
 
 set(warning_flags -Wall -Wextra -Wno-unknown-pragmas -Wno-unused-function -Werror=vla -Wno-deprecated-declaration)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     list(APPEND warning_flags -Wno-unknown-warning-option)
 endif()
+
 if(WARNINGS_AS_ERRORS)
     list(APPEND warning_flags -Werror)
 endif()
-add_library(unevent_internal_warnings INTERFACE)
 
-target_compile_options(unevent_internal_warnings INTERFACE "$<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:${warning_flags}>")
-target_link_libraries(unevent_internal INTERFACE unevent_internal_warnings)
+add_library(unevent_warnings INTERFACE)
 
-# add_link_options(-lexplain)
+target_compile_options(unevent_warnings INTERFACE "$<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:${warning_flags}>")
 
-add_subdirectory(external)
-add_subdirectory(src)
+target_link_libraries(unevent INTERFACE unevent_warnings)
 
-if(UNEVENT_BUILD_TESTS)
+if(UNLOG_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
+
+add_library(un::event ALIAS unevent)

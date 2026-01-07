@@ -64,28 +64,22 @@ RemoveSemicolon: true
 SortIncludes: CaseInsensitive
 IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex: '^"[^/]*.h(pp)?"$'
+  - Regex: '^"unevent'
     Priority: 1
-  - Regex: '^"wshttp'
+  - Regex: '^<unevent'
     Priority: 2
-  - Regex: '^<wshttp'
+  - Regex: '^"[^/]*.h(pp)?"$'
     Priority: 3
-  - Regex: '^"(event2|ntcp2|unlog)'
+  - Regex: '^"(event2|unlog)'
     Priority: 4
-  - Regex: '^<(event2|ntcp2|unlog)'
+  - Regex: '^<(event2|unlog)'
     Priority: 5
-  - Regex: '<winsock2\.h>'
-    Priority: 6
-  - Regex: '<windows\.h>'
-    Priority: 7
-  - Regex: '^<CLI'
-    Priority: 8
   - Regex: '^<catch2'
-    Priority: 9
+    Priority: 6
   - Regex: '^<.*\.h(pp)?>$'
-    Priority: 10
+    Priority: 7
   - Regex: '(<)(.)+(>)'
-    Priority: 11
+    Priority: 8
 
 # spacing
 SpaceBeforeParens: ControlStatements

@@ -1,3 +1,6 @@
 [submodule "external/libevent"]
 	path = external/libevent
 	url = https://github.com/libevent/libevent.git
+[submodule "external/unlog"]
+	path = external/unlog
+	url = https://github.com/dr7ana/unlog.git
