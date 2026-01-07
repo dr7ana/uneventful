@@ -4,3 +4,6 @@
 [submodule "external/unlog"]
 	path = external/unlog
 	url = https://github.com/dr7ana/unlog.git
+[submodule "tests/Catch2"]
+	path = tests/Catch2
+	url = https://github.com/catchorg/Catch2.git
