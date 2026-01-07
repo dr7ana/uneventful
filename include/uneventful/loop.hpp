@@ -15,7 +15,7 @@ extern "C" {
 #include <queue>
 #include <thread>
 
-namespace unevent {
+namespace un::event {
     class event_loop;
 
     namespace deleters {
@@ -263,4 +263,4 @@ namespace unevent {
 
         void process_job_queue();
     };
-}  // namespace unevent
+}  // namespace un::event

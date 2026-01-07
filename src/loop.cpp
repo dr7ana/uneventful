@@ -6,7 +6,7 @@ extern "C" {
 #include <openssl/types.h>
 }
 
-namespace unevent {
+namespace un::event {
     using namespace std::chrono_literals;
 
     namespace detail {
@@ -302,4 +302,4 @@ namespace unevent {
         }
     }
 
-}  // namespace unevent
+}  // namespace un::event

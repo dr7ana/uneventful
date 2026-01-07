@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <span>
 
-namespace unevent {
+namespace un::event {
     using cspan = unlog::cspan;
     using uspan = unlog::uspan;
     using bspan = unlog::bspan;
@@ -20,4 +20,4 @@ namespace unevent {
         }
     }  // namespace detail
 
-}  // namespace unevent
+}  // namespace un::event

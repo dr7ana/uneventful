@@ -98,7 +98,7 @@ target_compile_options(unevent_warnings INTERFACE "$<$<OR:$<COMPILE_LANGUAGE:CXX
 
 target_link_libraries(unevent INTERFACE unevent_warnings)
 
-if(UNLOG_BUILD_TESTS)
+if(UNEVENT_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
