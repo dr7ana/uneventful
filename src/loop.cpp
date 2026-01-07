@@ -1,4 +1,4 @@
-#include "uneventful.hpp"
+#include "uneventful/loop.hpp"
 
 extern "C" {
 #include <openssl/err.h>

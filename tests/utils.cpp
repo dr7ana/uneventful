@@ -1,6 +1,6 @@
 #include "utils.hpp"
 
-namespace un::log::test {
+namespace un::event::test {
     //
 
 }

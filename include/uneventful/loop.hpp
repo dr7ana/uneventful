@@ -24,6 +24,10 @@ namespace un::event {
         };
     }  // namespace deleters
 
+    namespace test {
+        struct test_helper;
+    }  // namespace test
+
     using Job = std::function<void()>;
 
     using loop_ptr = std::shared_ptr<::event_base>;
@@ -75,6 +79,7 @@ namespace un::event {
 
     class event_loop final {
         friend class endpoint;
+        friend struct test::test_helper;
 
         event_loop();
 
@@ -183,6 +188,8 @@ namespace un::event {
             event_active(job_waker.get(), 0, 0);
         }
 
+        bool in_event_loop() const { return std::this_thread::get_id() == loop_thread_id; }
+
       private:
         template <std::invocable Callable>
         void add_oneshot_event(std::chrono::microseconds delay, Callable hook) {
@@ -203,8 +210,6 @@ namespace un::event {
         void clear_old_tickers();
 
         std::shared_ptr<ev_watcher> make_handler(caller_id_t _id);
-
-        bool in_event_loop() const { return std::this_thread::get_id() == loop_thread_id; }
 
         static constexpr caller_id_t loop_id{0};
 
