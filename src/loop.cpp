@@ -215,8 +215,6 @@ namespace un::event {
     event_loop::~event_loop() {
         unlog::info("Shutting down loop...");
 
-        stop_thread();
-
         for (auto& [id, list] : tickers) {
             std::for_each(list.begin(), list.end(), [](auto& t) {
                 if (auto tick = t.lock()) {
@@ -225,6 +223,8 @@ namespace un::event {
                 }
             });
         }
+
+        stop_thread();
 
         unlog::info("Loop shutdown complete");
 
