@@ -171,6 +171,32 @@ namespace un::event::test {
         REQUIRE(count.load() == expected);
     }
 
+    TEST_CASE("event_loop continues after call_soon exception", "[event_loop][call_soon]") {
+        using namespace std::chrono_literals;
+
+        auto loop = un::event::event_loop::make();
+        std::promise<void> p;
+        auto fut = p.get_future();
+
+        loop->call_soon([] { throw std::runtime_error("boom"); });
+        loop->call_soon([&] { p.set_value(); });
+
+        REQUIRE(fut.wait_for(200ms) == std::future_status::ready);
+    }
+
+    TEST_CASE("event_loop continues after off-thread call exception", "[event_loop][call]") {
+        using namespace std::chrono_literals;
+
+        auto loop = un::event::event_loop::make();
+        std::promise<void> p;
+        auto fut = p.get_future();
+
+        loop->call([] { throw std::runtime_error("boom"); });
+        loop->call_soon([&] { p.set_value(); });
+
+        REQUIRE(fut.wait_for(200ms) == std::future_status::ready);
+    }
+
     TEST_CASE("event_loop executes call_get inline on loop thread", "[event_loop][call_get]") {
         using namespace std::chrono_literals;
 

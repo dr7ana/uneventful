@@ -273,9 +273,15 @@ namespace un::event {
         }
 
         while (not swapped_queue.empty()) {
-            auto job = swapped_queue.front();
+            try {
+                swapped_queue.front()();
+            } catch (const std::exception& e) {
+                unlog::critical("Queued job threw exception: {}", e.what());
+            } catch (...) {
+                unlog::critical("Queued job threw non-std exception");
+            }
+
             swapped_queue.pop();
-            job();
         }
     }
 
