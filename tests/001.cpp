@@ -13,7 +13,7 @@ namespace un::event::test {
         REQUIRE(loop);
         REQUIRE(loop->loop());
 
-        const char* method = event_base_get_method(loop->loop().get());
+        const char* method = event_base_get_method(loop->loop());
         REQUIRE(method != nullptr);
         REQUIRE(method[0] != '\0');
     }

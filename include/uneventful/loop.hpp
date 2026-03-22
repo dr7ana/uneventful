@@ -30,7 +30,6 @@ namespace un::event {
 
     using Job = std::function<void()>;
 
-    using loop_ptr = std::shared_ptr<::event_base>;
     using event_ptr = std::unique_ptr<::event, deleters::_event>;
 
     using caller_id_t = uint16_t;
@@ -40,13 +39,12 @@ namespace un::event {
         friend struct loop_callbacks;
 
       private:
-        std::atomic<bool> _is_running{false};
         event_ptr ev;
         timeval interval;
         std::function<void()> f;
 
         void init_event(
-                const loop_ptr& _loop,
+                ::event_base* _loop,
                 std::chrono::microseconds _t,
                 std::function<void()> task,
                 bool one_off = false,
@@ -59,8 +57,6 @@ namespace un::event {
 
       public:
         ~ev_watcher();
-
-        bool is_running() const { return _is_running; }
 
         /** Starts the repeating event on the given interval on Ticker creation
             Returns:
@@ -77,8 +73,7 @@ namespace un::event {
         bool stop();
     };
 
-    class event_loop final {
-        friend class endpoint;
+    class event_loop final : public std::enable_shared_from_this<event_loop> {
         friend struct test::test_helper;
 
         event_loop();
@@ -95,7 +90,7 @@ namespace un::event {
 
       private:
         std::atomic<bool> running{false};
-        std::shared_ptr<::event_base> ev_loop;
+        std::unique_ptr<::event_base, void (*)(struct ::event_base*)> ev_loop;
         std::optional<std::thread> loop_thread;
         std::thread::id loop_thread_id;
 
@@ -106,28 +101,32 @@ namespace un::event {
         std::unordered_map<caller_id_t, std::list<std::weak_ptr<ev_watcher>>> tickers;
 
       public:
-        const std::shared_ptr<::event_base>& loop() const { return ev_loop; }
+        ::event_base* loop() const noexcept { return ev_loop.get(); }
 
-        template <typename Callable>
+        template <std::invocable<> Callable>
         void call(Callable&& f) {
-            if (in_event_loop())
+            if (in_event_loop()) {
                 f();
-            else
+            }
+            else {
                 call_soon(std::forward<Callable>(f));
+            }
         }
 
         template <typename Callable, typename Ret = decltype(std::declval<Callable>()())>
         Ret call_get(Callable&& f) {
-            if (in_event_loop())
+            if (in_event_loop()) {
                 return f();
+            }
 
             std::promise<Ret> prom;
             auto fut = prom.get_future();
 
             call_soon([&f, &prom] {
                 try {
-                    if constexpr (!std::is_void_v<Ret>)
+                    if constexpr (!std::is_void_v<Ret>) {
                         prom.set_value(f());
+                    }
                     else {
                         f();
                         prom.set_value();
@@ -162,18 +161,21 @@ namespace un::event {
 
         template <std::invocable Callable>
         void call_later(std::chrono::microseconds delay, Callable hook) {
-            if (in_event_loop())
+            if (in_event_loop()) {
                 add_oneshot_event(delay, std::move(hook));
+            }
             else {
                 call_soon([this, func = std::move(hook), target_time = detail::get_time() + delay]() mutable {
                     auto now = detail::get_time();
 
-                    if (now >= target_time)
+                    if (now >= target_time) {
                         func();
-                    else
+                    }
+                    else {
                         add_oneshot_event(
                                 std::chrono::duration_cast<std::chrono::microseconds>(target_time - now),
                                 std::move(func));
+                    }
                 });
             }
         }
@@ -188,7 +190,7 @@ namespace un::event {
             event_active(job_waker.get(), 0, 0);
         }
 
-        bool in_event_loop() const { return std::this_thread::get_id() == loop_thread_id; }
+        bool in_event_loop() const noexcept { return std::this_thread::get_id() == loop_thread_id; }
 
         // Similar in concept to std::make_shared<T>, but it creates the shared pointer with a
         // custom deleter that dispatches actual object destruction to the network's event loop for
@@ -202,9 +204,38 @@ namespace un::event {
         // Similar to the above make_shared, but instead of forwarding arguments for the
         // construction of the object, it creates the shared_ptr from the already created object ptr
         // and wraps the object's deleter in a wrapped_deleter
-        template <typename T, typename Callable>
+        template <typename T, std::invocable<T*> Callable>
         std::shared_ptr<T> shared_ptr(T* obj, Callable&& deleter) {
             return std::shared_ptr<T>(obj, wrapped_deleter<T>(std::forward<Callable>(deleter)));
+        }
+
+        // Returns a pointer deleter that defers the actual destruction call to this network
+        // object's event loop.
+        template <typename T>
+        auto loop_deleter() {
+            auto weak_self = this->weak_from_this();
+            return [weak_self](T* ptr) {
+                if (auto self = weak_self.lock()) {
+                    self->call_get([ptr] { delete ptr; });
+                }
+                else {
+                    delete ptr;
+                }
+            };
+        }
+
+        // Returns a pointer deleter that defers invocation of a custom deleter to the event loop
+        template <typename T, std::invocable<T*> Callable>
+        auto wrapped_deleter(Callable f) {
+            auto weak_self = this->weak_from_this();
+            return [weak_self, func = std::move(f)](T* ptr) mutable {
+                if (auto self = weak_self.lock()) {
+                    self->call_get([f = std::move(func), ptr]() mutable { f(ptr); });
+                }
+                else {
+                    func(ptr);
+                }
+            };
         }
 
         // invoked in Network destructor by final Network to close shared_ptr
@@ -234,21 +265,6 @@ namespace un::event {
         std::shared_ptr<ev_watcher> make_handler(caller_id_t _id);
 
         static constexpr caller_id_t loop_id{0};
-
-        // Returns a pointer deleter that defers the actual destruction call to this network
-        // object's event loop.
-        template <typename T>
-        auto loop_deleter() {
-            return [this](T* ptr) { call([ptr] { delete ptr; }); };
-        }
-
-        // Returns a pointer deleter that defers invocation of a custom deleter to the event loop
-        template <typename T, std::invocable<T*> Callable>
-        auto wrapped_deleter(Callable f) {
-            return [this, func = std::move(f)](T* ptr) mutable {
-                return call_get([f = std::move(func), ptr]() { return f(ptr); });
-            };
-        }
 
         template <typename Callable>
         [[nodiscard]] std::shared_ptr<ev_watcher> _call_every(

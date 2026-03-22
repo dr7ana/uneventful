@@ -1,5 +1,7 @@
 #include "uneventful/loop.hpp"
 
+#include <unlog/config.hpp>
+
 extern "C" {
 #include <openssl/err.h>
 #include <openssl/ssl.h>
@@ -38,11 +40,11 @@ namespace un::event {
                 case EVENT_LOG_MSG:
                     unlog::info("{}", msg);
                     return;
+                default:
                 case EVENT_LOG_DEBUG:
                     unlog::debug("{}", msg);
                     return;
             }
-            std::abort();
         });
     }
 
@@ -53,29 +55,19 @@ namespace un::event {
     }
 
     bool ev_watcher::start() {
-        if (_is_running)
-            return false;
-
         if (event_add(ev.get(), &interval) != 0) {
             unlog::critical("EventHandler failed to start repeating event!");
             return false;
         }
 
-        _is_running = true;
-
         return true;
     }
 
     bool ev_watcher::stop() {
-        if (not _is_running)
-            return false;
-
-        if (event_del(ev.get()) != 0) {
+        if (ev && event_del(ev.get()) != 0) {
             unlog::critical("EventHandler failed to pause repeating event!");
             return false;
         }
-
-        _is_running = false;
 
         return true;
     }
@@ -87,7 +79,7 @@ namespace un::event {
     }
 
     void ev_watcher::init_event(
-            const loop_ptr& _loop,
+            ::event_base* _loop,
             std::chrono::microseconds _t,
             std::function<void()> task,
             bool one_off,
@@ -102,7 +94,7 @@ namespace un::event {
         interval = loop_time_to_timeval(_t);
 
         ev.reset(event_new(
-                _loop.get(),
+                _loop,
                 -1,
                 fixed_interval ? 0 : EV_PERSIST,
                 [](evutil_socket_t, short, void* s) {
@@ -120,8 +112,9 @@ namespace un::event {
                 },
                 this));
 
-        if ((one_off or start_immediately) and not start())
+        if ((one_off or start_immediately) and not start()) {
             unlog::critical("Failed to immediately start one-off event!");
+        }
     }
 
     ev_watcher::~ev_watcher() {
@@ -131,8 +124,9 @@ namespace un::event {
 
     static std::vector<std::string_view> get_ev_methods() {
         std::vector<std::string_view> ev_methods_avail;
-        for (const char** methods = event_get_supported_methods(); methods && *methods; methods++)
+        for (const char** methods = event_get_supported_methods(); methods && *methods; methods++) {
             ev_methods_avail.emplace_back(*methods);
+        }
         return ev_methods_avail;
     }
 
@@ -141,6 +135,14 @@ namespace un::event {
     }
 
     static struct event_base* try_make_et_evbase() {
+        if (static bool once = false; !once) {
+            once = true;
+            setup_libevent_logging();
+            detail::setup_ssl_library();
+
+            evthread_use_pthreads();
+        }
+
         static std::array<int, 2> features{EV_FEATURE_ET, 0};
         static std::vector<std::string_view> ev_methods_avail = get_ev_methods();
 
@@ -164,33 +166,8 @@ namespace un::event {
         throw std::runtime_error{"Failed to create edge-triggered or standard I/O event base!"};
     }
 
-    event_loop::event_loop() {
+    event_loop::event_loop() : ev_loop{try_make_et_evbase(), ::event_base_free} {
         unlog::trace("Beginning loop context creation with new ev loop thread");
-
-#ifdef _WIN32
-        {
-            WSADATA ignored;
-            if (int err = WSAStartup(MAKEWORD(2, 2), &ignored); err != 0) {
-                unlog::critical("WSAStartup failed to initialize the windows socket layer ({:x})", err);
-                throw std::runtime_error{"Unable to initialize windows socket layer"};
-            }
-        }
-#endif
-
-        if (static bool once = false; !once) {
-            once = true;
-            setup_libevent_logging();
-            detail::setup_ssl_library();
-
-            // Older versions of libevent do not like having this called multiple times
-#ifdef _WIN32
-            evthread_use_windows_threads();
-#else
-            evthread_use_pthreads();
-#endif
-        }
-
-        ev_loop = std::shared_ptr<event_base>{try_make_et_evbase(), event_base_free};
 
         unlog::debug("Started libevent loop with backend {}", event_base_get_method(ev_loop.get()));
 
@@ -227,28 +204,28 @@ namespace un::event {
         stop_thread();
 
         unlog::info("Loop shutdown complete");
-
-#ifdef _WIN32
-        WSACleanup();
-#endif
     }
 
     void event_loop::stop_thread(bool immediate) {
         unlog::debug("Stopping loop thread...");
-        if (loop_thread)
+        if (loop_thread) {
             immediate ? event_base_loopbreak(ev_loop.get()) : event_base_loopexit(ev_loop.get(), nullptr);
+        }
 
-        if (loop_thread and loop_thread->joinable())
+        if (loop_thread and loop_thread->joinable()) {
             loop_thread->join();
+        }
     }
 
     void event_loop::clear_old_tickers() {
         for (auto& [id, list] : tickers) {
             for (auto itr = list.begin(); itr != list.end();) {
-                if (itr->expired())
+                if (itr->expired()) {
                     itr = list.erase(itr);
-                else
+                }
+                else {
                     ++itr;
+                }
             }
         }
     }

@@ -167,7 +167,6 @@ namespace un::event::test {
             }
         });
 
-        REQUIRE(watcher->is_running());
         REQUIRE(ran_fut.wait_for(200ms) == std::future_status::ready);
         REQUIRE(count.load() >= 1);
 
@@ -229,9 +228,6 @@ namespace un::event::test {
                 },
                 false);
 
-        REQUIRE_FALSE(watcher->is_running());
-        REQUIRE_FALSE(watcher->stop());
-
         std::promise<bool> idle;
         auto idle_fut = idle.get_future();
         loop->call_later(30ms, [&] { idle.set_value(count.load() == 0); });
@@ -240,12 +236,10 @@ namespace un::event::test {
         REQUIRE(idle_fut.get());
 
         REQUIRE(watcher->start());
-        REQUIRE_FALSE(watcher->start());
 
         REQUIRE(ran_fut.wait_for(200ms) == std::future_status::ready);
 
         REQUIRE(watcher->stop());
-        REQUIRE_FALSE(watcher->stop());
 
         int stopped_at = count.load();
         std::promise<bool> stable;
@@ -510,4 +504,42 @@ namespace un::event::test {
         auto loop_id = loop->call_get([] { return std::this_thread::get_id(); });
         REQUIRE(dtor_id == loop_id);
     }
+
+    TEST_CASE("event_loop loop_deleter tolerates managed object outliving loop", "[event_loop][deleter][lifetime]") {
+        using namespace std::chrono_literals;
+
+        std::promise<void> done;
+        auto fut = done.get_future();
+        std::shared_ptr<deleter_probe> ptr;
+
+        {
+            auto loop = un::event::event_loop::make();
+            ptr = test_helper::make_shared<deleter_probe>(*loop, &done, nullptr, nullptr, nullptr);
+        }
+
+        ptr.reset();
+
+        REQUIRE(fut.wait_for(200ms) == std::future_status::ready);
+    }
+
+    TEST_CASE("event_loop wrapped_deleter tolerates managed object outliving loop", "[event_loop][deleter][lifetime]") {
+        using namespace std::chrono_literals;
+
+        std::promise<void> done;
+        auto fut = done.get_future();
+        std::shared_ptr<int> ptr;
+
+        {
+            auto loop = un::event::event_loop::make();
+            ptr = test_helper::shared_ptr(*loop, new int{1}, [&](int* value) {
+                delete value;
+                done.set_value();
+            });
+        }
+
+        ptr.reset();
+
+        REQUIRE(fut.wait_for(200ms) == std::future_status::ready);
+    }
+
 }  // namespace un::event::test

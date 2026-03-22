@@ -14,6 +14,8 @@ namespace un::event {
     using namespace unlog::literals;
     using namespace un::log::operators;
 
+    inline constexpr size_t thread_bufsize_bytes{1U << 22};
+
     namespace detail {
         inline std::chrono::steady_clock::time_point get_time() {
             return std::chrono::steady_clock::now();
