@@ -9,7 +9,7 @@ bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
 bazel_dep(name = "unlog", version = "0.0.1")
 git_override(
     module_name = "unlog",
-    commit = "9cc8d90535ef35992a14ed8468b60a5959a11438",
+    commit = "39f330296cc8ba877dff782176156e0159d72829",
     init_submodules = True,
     remote = "https://github.com/dr7ana/unlog",
 )
@@ -17,7 +17,7 @@ git_override(
 bazel_dep(name = "utl", version = "0.1.0")
 git_override(
     module_name = "utl",
-    commit = "de5bd7250df47e1d79628ecee60d43358816612a",
+    commit = "2e774773f6ad569a5c75754bf5e37c32b41bc9eb",
     init_submodules = True,
     remote = "https://github.com/dr7ana/utl",
 )
