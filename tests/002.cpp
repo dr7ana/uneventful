@@ -173,41 +173,6 @@ namespace un::event::test {
         REQUIRE(watcher->stop());
     }
 
-    TEST_CASE("event_loop call_every wait mode avoids reentry", "[event_loop][call_every]") {
-        using namespace std::chrono_literals;
-
-        auto loop = un::event::event_loop::make();
-        std::atomic<bool> in_callback{false};
-        std::atomic<bool> reentered{false};
-        std::atomic<int> count{0};
-
-        std::promise<void> done;
-        auto done_fut = done.get_future();
-        std::atomic<bool> done_set{false};
-
-        std::shared_ptr<un::event::ev_watcher> watcher;
-        watcher = loop->call_every(
-                10ms,
-                [&] {
-                    if (in_callback.exchange(true))
-                        reentered.store(true);
-
-                    std::this_thread::sleep_for(30ms);
-                    in_callback.store(false);
-
-                    if (count.fetch_add(1) + 1 >= 2) {
-                        watcher->stop();
-                        if (!done_set.exchange(true))
-                            done.set_value();
-                    }
-                },
-                true,
-                true);
-
-        REQUIRE(done_fut.wait_for(500ms) == std::future_status::ready);
-        REQUIRE_FALSE(reentered.load());
-    }
-
     TEST_CASE("event_loop call_every respects start/stop semantics", "[event_loop][call_every]") {
         using namespace std::chrono_literals;
 
@@ -284,7 +249,7 @@ namespace un::event::test {
         REQUIRE(stable_fut.get());
     }
 
-    TEST_CASE("event_loop call_every non-wait cadence stays near interval", "[event_loop][call_every]") {
+    TEST_CASE("event_loop call_every cadence stays near interval", "[event_loop][call_every]") {
         using namespace std::chrono_literals;
 
         using clock = std::chrono::steady_clock;
@@ -310,8 +275,7 @@ namespace un::event::test {
                             done.set_value();
                     }
                 },
-                true,
-                false);
+                true);
 
         REQUIRE(done_fut.wait_for(500ms) == std::future_status::ready);
         REQUIRE(times.size() >= samples);
@@ -348,57 +312,11 @@ namespace un::event::test {
                             done.set_value();
                     }
                 },
-                true,
-                false);
+                true);
 
         REQUIRE(done_fut.wait_for(500ms) == std::future_status::ready);
         REQUIRE(threw.load());
         REQUIRE(count.load() >= 2);
-    }
-
-    TEST_CASE("event_loop call_every wait mode delays callbacks after work", "[event_loop][call_every]") {
-        using namespace std::chrono_literals;
-
-        auto measure_gap = [](bool wait) {
-            using clock = std::chrono::steady_clock;
-
-            auto loop = un::event::event_loop::make();
-            std::promise<void> done;
-            auto fut = done.get_future();
-
-            clock::time_point end_first{};
-            clock::time_point start_second{};
-            std::atomic<int> count{0};
-            std::shared_ptr<un::event::ev_watcher> watcher;
-
-            constexpr auto interval = 40ms;
-            constexpr auto work = 60ms;
-
-            watcher = loop->call_every(
-                    interval,
-                    [&] {
-                        int idx = count.fetch_add(1);
-                        if (idx == 0) {
-                            std::this_thread::sleep_for(work);
-                            end_first = clock::now();
-                        }
-                        else if (idx == 1) {
-                            start_second = clock::now();
-                            watcher->stop();
-                            done.set_value();
-                        }
-                    },
-                    true,
-                    wait);
-
-            REQUIRE(fut.wait_for(2s) == std::future_status::ready);
-            return start_second - end_first;
-        };
-
-        auto gap_no_wait = measure_gap(false);
-        auto gap_wait = measure_gap(true);
-
-        REQUIRE(gap_wait >= gap_no_wait + 30ms);
     }
 
     TEST_CASE("event_loop cancels call_later after destruction", "[event_loop][call_later]") {
@@ -440,6 +358,57 @@ namespace un::event::test {
 
         std::this_thread::sleep_for(50ms);
         REQUIRE(count.load() == stopped_at);
+    }
+
+    TEST_CASE("event_loop can release last owner from loop callback", "[event_loop][lifecycle][regression]") {
+        using namespace std::chrono_literals;
+
+        auto loop = un::event::event_loop::make();
+        auto owned = std::make_shared<std::shared_ptr<un::event::event_loop>>(loop);
+
+        std::promise<void> callback_done;
+        auto callback_done_fut = callback_done.get_future();
+
+        loop->call_soon([owned, &callback_done]() mutable {
+            owned->reset();
+            callback_done.set_value();
+        });
+
+        loop.reset();
+
+        REQUIRE(callback_done_fut.wait_for(200ms) == std::future_status::ready);
+    }
+
+    TEST_CASE(
+            "event_loop can release last owner with later queued jobs pending", "[event_loop][lifecycle][regression]") {
+        using namespace std::chrono_literals;
+
+        std::atomic<int> later_jobs_ran{0};
+
+        for (int iteration = 0; iteration < 32; ++iteration) {
+            auto loop = un::event::event_loop::make();
+            auto owned = std::make_shared<std::shared_ptr<un::event::event_loop>>(loop);
+
+            std::promise<void> first_done;
+            auto first_done_fut = first_done.get_future();
+            std::atomic<bool> first_done_set{false};
+
+            test_helper::queue_jobs(
+                    *loop,
+                    [owned, &first_done, &first_done_set]() mutable {
+                        owned->reset();
+                        if (!first_done_set.exchange(true))
+                            first_done.set_value();
+                    },
+                    [&later_jobs_ran] { later_jobs_ran.fetch_add(1); },
+                    [&later_jobs_ran] { later_jobs_ran.fetch_add(1); });
+
+            loop.reset();
+
+            REQUIRE(first_done_fut.wait_for(200ms) == std::future_status::ready);
+        }
+
+        REQUIRE(later_jobs_ran.load() == 0);
     }
 
     struct deleter_probe {

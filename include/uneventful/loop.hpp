@@ -48,12 +48,9 @@ namespace un::event {
                 std::chrono::microseconds _t,
                 std::function<void()> task,
                 bool one_off = false,
-                bool start_immediately = true,
-                bool fixed_interval = false);
+                bool start_immediately = true);
 
         ev_watcher() = default;
-
-        void fire();
 
       public:
         ~ev_watcher();
@@ -91,7 +88,7 @@ namespace un::event {
       private:
         std::atomic<bool> running{false};
         std::unique_ptr<::event_base, void (*)(struct ::event_base*)> ev_loop;
-        std::optional<std::thread> loop_thread;
+        std::thread loop_thread;
         std::thread::id loop_thread_id;
 
         event_ptr job_waker;
@@ -145,18 +142,11 @@ namespace un::event {
 
             Configurable parameters:
                 - start_immediately : will call ::event_add() before returning the ticker
-                - wait :
-                    - if FALSE (default behavior), the interval will not wait for the event to
-                        complete. will attempt to execute every `interval`, regardless of how long the event
-                        itself takes.
-                    - if TRUE, the interval will wait for the event to complete before beginning. It
-                        will wait the entire `interval` after finishing execution of the event before attempting
-                        execution again.
         */
         template <typename Callable>
         [[nodiscard]] std::shared_ptr<ev_watcher> call_every(
-                std::chrono::microseconds interval, Callable&& f, bool start_immediately = true, bool wait = false) {
-            return _call_every(interval, std::forward<Callable>(f), event_loop::loop_id, start_immediately, wait);
+                std::chrono::microseconds interval, Callable&& f, bool start_immediately = true) {
+            return _call_every(interval, std::forward<Callable>(f), event_loop::loop_id, start_immediately);
         }
 
         template <std::invocable Callable>
@@ -238,8 +228,7 @@ namespace un::event {
             };
         }
 
-        // invoked in Network destructor by final Network to close shared_ptr
-        void stop_thread(bool immediate = true);
+        void stop_thread();
 
         void stop_tickers(caller_id_t _id);
 
@@ -260,6 +249,8 @@ namespace un::event {
                     true);
         }
 
+        void shutdown();
+
         void clear_old_tickers();
 
         std::shared_ptr<ev_watcher> make_handler(caller_id_t _id);
@@ -268,14 +259,10 @@ namespace un::event {
 
         template <typename Callable>
         [[nodiscard]] std::shared_ptr<ev_watcher> _call_every(
-                std::chrono::microseconds interval,
-                Callable&& f,
-                caller_id_t _id,
-                bool start_immediately,
-                bool fixed_interval) {
+                std::chrono::microseconds interval, Callable&& f, caller_id_t _id, bool start_immediately) {
             auto h = make_handler(_id);
 
-            h->init_event(loop(), interval, std::forward<Callable>(f), false, start_immediately, fixed_interval);
+            h->init_event(loop(), interval, std::forward<Callable>(f), false, start_immediately);
 
             return h;
         }

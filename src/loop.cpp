@@ -72,31 +72,20 @@ namespace un::event {
         return true;
     }
 
-    void ev_watcher::fire() {
-        f();
-        event_del(ev.get());
-        event_add(ev.get(), &interval);
-    }
-
     void ev_watcher::init_event(
             ::event_base* _loop,
             std::chrono::microseconds _t,
             std::function<void()> task,
             bool one_off,
-            bool start_immediately,
-            bool fixed_interval) {
-        f = (one_off or not fixed_interval) ? std::move(task) : [this, func = std::move(task)]() mutable {
-            func();
-            event_del(ev.get());
-            event_add(ev.get(), &interval);
-        };
+            bool start_immediately) {
+        f = std::move(task);
 
         interval = loop_time_to_timeval(_t);
 
         ev.reset(event_new(
                 _loop,
                 -1,
-                fixed_interval ? 0 : EV_PERSIST,
+                one_off ? 0 : EV_PERSIST,
                 [](evutil_socket_t, short, void* s) {
                     try {
                         auto* self = reinterpret_cast<ev_watcher*>(s);
@@ -175,14 +164,14 @@ namespace un::event {
 
         std::promise<void> p;
 
-        loop_thread.emplace([this, &p]() mutable {
+        loop_thread = std::thread{[this, &p]() mutable {
             unlog::debug("Starting event loop run");
             p.set_value();
             event_base_loop(ev_loop.get(), EVLOOP_NO_EXIT_ON_EMPTY);
             unlog::debug("Event loop run returned, thread finished");
-        });
+        }};
 
-        loop_thread_id = loop_thread->get_id();
+        loop_thread_id = loop_thread.get_id();
         p.get_future().get();
 
         running.store(true);
@@ -191,6 +180,17 @@ namespace un::event {
 
     event_loop::~event_loop() {
         unlog::info("Shutting down loop...");
+
+        call_get([this]() { shutdown(); });
+
+        stop_thread();
+
+        job_waker.reset();
+        unlog::info("Loop shutdown complete");
+    }
+
+    void event_loop::shutdown() {
+        unlog::trace("{} called", __PRETTY_FUNCTION__);
 
         for (auto& [id, list] : tickers) {
             std::for_each(list.begin(), list.end(), [](auto& t) {
@@ -201,19 +201,16 @@ namespace un::event {
             });
         }
 
-        stop_thread();
-
-        unlog::info("Loop shutdown complete");
+        running.store(false, std::memory_order_release);
     }
 
-    void event_loop::stop_thread(bool immediate) {
+    void event_loop::stop_thread() {
         unlog::debug("Stopping loop thread...");
-        if (loop_thread) {
-            immediate ? event_base_loopbreak(ev_loop.get()) : event_base_loopexit(ev_loop.get(), nullptr);
-        }
 
-        if (loop_thread and loop_thread->joinable()) {
-            loop_thread->join();
+        event_base_loopbreak(ev_loop.get());
+
+        if (loop_thread.joinable()) {
+            in_event_loop() ? loop_thread.detach() : loop_thread.join();
         }
     }
 
@@ -272,16 +269,17 @@ namespace un::event {
             job_queue.swap(swapped_queue);
         }
 
-        while (not swapped_queue.empty()) {
+        while (not swapped_queue.empty() && running.load(std::memory_order_acquire)) {
             try {
-                swapped_queue.front()();
+                auto front = swapped_queue.front();
+                static_assert(std::same_as<std::decay_t<decltype(front)>, Job>);
+                swapped_queue.pop();
+                front();
             } catch (const std::exception& e) {
                 unlog::critical("Queued job threw exception: {}", e.what());
             } catch (...) {
                 unlog::critical("Queued job threw non-std exception");
             }
-
-            swapped_queue.pop();
         }
     }
 

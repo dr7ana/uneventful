@@ -4,6 +4,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <mutex>
 #include <utility>
 
 namespace un::event::test {
@@ -19,6 +20,16 @@ namespace un::event::test {
         template <typename T, typename Callable>
         static auto shared_ptr(event_loop& loop, T* obj, Callable&& deleter) {
             return loop.template shared_ptr<T>(obj, std::forward<Callable>(deleter));
+        }
+
+        template <typename... Callables>
+        static void queue_jobs(event_loop& loop, Callables&&... callables) {
+            {
+                std::lock_guard lock{loop.job_queue_mutex};
+                (loop.job_queue.emplace(std::forward<Callables>(callables)), ...);
+            }
+
+            event_active(loop.job_waker.get(), 0, 0);
         }
     };
 
