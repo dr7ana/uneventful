@@ -4,13 +4,29 @@ module(
 )
 
 bazel_dep(name = "rules_cc", version = "0.2.13")
+bazel_dep(name = "platforms", version = "0.0.11")
 bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
 bazel_dep(name = "unlog", version = "0.0.1")
 git_override(
     module_name = "unlog",
-    commit = "08c69bf4473bef7091a05b60d179d51b129b732c",
+    commit = "bd4481d421250f70b5b41403373f65e6608961da",
     init_submodules = True,
     remote = "https://github.com/dr7ana/unlog",
+)
+
+bazel_dep(name = "utl", version = "0.1.0")
+git_override(
+    module_name = "utl",
+    commit = "3b9b54fea850ab3c739da5936573fcb96353e301",
+    init_submodules = True,
+    remote = "https://github.com/dr7ana/utl",
+)
+
+bazel_dep(name = "allocazam", version = "0.1.0")
+git_override(
+    module_name = "allocazam",
+    commit = "61139e2b46c744330ad862b2c019ac804ea6a331",
+    remote = "https://github.com/dr7ana/allocazam",
 )
 
 bazel_dep(name = "libevent", version = "2.2.1-alpha")
