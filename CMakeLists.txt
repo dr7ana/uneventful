@@ -79,7 +79,6 @@ target_link_libraries(unevent
 
     libevent::core
     libevent::extra
-    libevent::ssl
     libevent::threads
 )
 
