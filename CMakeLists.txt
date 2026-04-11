@@ -32,6 +32,7 @@ option(BUILD_SHARED_LIBS "Build as shared library" OFF)
 option(BUILD_STATIC_DEPS "Build and link against static dependencies" OFF)
 option(WARNINGS_AS_ERRORS "Treat all warnings as errors. turn off for development, on for release" OFF)
 option(UNEVENT_BUILD_TESTS "Build unevent test suite" ${UNEVENT_IS_TOPLEVEL_PROJECT})
+option(UNEVENTFUL_USE_BUNDLED_LIBEVENT "Build uneventful with the vendored libevent submodule" ON)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
