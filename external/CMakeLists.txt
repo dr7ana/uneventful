@@ -14,6 +14,10 @@ endif()
 add_subdirectory(unlog)
 
 # libevent
+if(UNEVENTFUL_ENABLE_LIBEVENT_SSL)
+    set(EVENT__DISABLE_OPENSSL OFF CACHE BOOL "" FORCE)
+endif()
+
 if(UNEVENTFUL_USE_BUNDLED_LIBEVENT)
     set(EVENT__LIBRARY_TYPE "STATIC" CACHE STRING "" FORCE)
     set(EVENT__DISABLE_TESTS ON CACHE BOOL "" FORCE)
@@ -22,34 +26,38 @@ if(UNEVENTFUL_USE_BUNDLED_LIBEVENT)
     set(EVENT__DISABLE_SAMPLES ON CACHE BOOL "" FORCE)
     add_subdirectory(libevent EXCLUDE_FROM_ALL)
 
-    add_library(libevent::ssl ALIAS event_openssl)
+    add_library(libevent::extra ALIAS event_extra)
     add_library(libevent::core ALIAS event_core)
     add_library(libevent::threads ALIAS event_pthreads)
-    add_library(libevent::extra ALIAS event_extra)
+    if(UNEVENTFUL_ENABLE_LIBEVENT_SSL)
+        add_library(libevent::ssl ALIAS event_openssl)
+    endif()
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBEVENT_CORE REQUIRED IMPORTED_TARGET libevent_core>=2.1.12)
     pkg_check_modules(LIBEVENT_EXTRA REQUIRED IMPORTED_TARGET libevent_extra>=2.1.12)
     pkg_check_modules(LIBEVENT_PTHREADS REQUIRED IMPORTED_TARGET libevent_pthreads>=2.1.12)
-    pkg_check_modules(LIBEVENT_OPENSSL IMPORTED_TARGET libevent_openssl>=2.1.12)
-
+    
     if(NOT TARGET libevent::core)
         add_library(libevent::core INTERFACE IMPORTED GLOBAL)
         target_link_libraries(libevent::core INTERFACE PkgConfig::LIBEVENT_CORE)
     endif()
-
+    
     if(NOT TARGET libevent::extra)
         add_library(libevent::extra INTERFACE IMPORTED GLOBAL)
         target_link_libraries(libevent::extra INTERFACE PkgConfig::LIBEVENT_EXTRA)
     endif()
-
+    
     if(NOT TARGET libevent::threads)
         add_library(libevent::threads INTERFACE IMPORTED GLOBAL)
         target_link_libraries(libevent::threads INTERFACE PkgConfig::LIBEVENT_PTHREADS)
     endif()
-
-    if(TARGET PkgConfig::LIBEVENT_OPENSSL AND NOT TARGET libevent::ssl)
-        add_library(libevent::ssl INTERFACE IMPORTED GLOBAL)
-        target_link_libraries(libevent::ssl INTERFACE PkgConfig::LIBEVENT_OPENSSL)
+    
+    if(UNEVENTFUL_ENABLE_LIBEVENT_SSL)
+        pkg_check_modules(LIBEVENT_OPENSSL IMPORTED_TARGET libevent_openssl>=2.1.12)
+        if(TARGET PkgConfig::LIBEVENT_OPENSSL AND NOT TARGET libevent::ssl)
+            add_library(libevent::ssl INTERFACE IMPORTED GLOBAL)
+            target_link_libraries(libevent::ssl INTERFACE PkgConfig::LIBEVENT_OPENSSL)
+        endif()
     endif()
 endif()

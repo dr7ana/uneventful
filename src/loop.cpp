@@ -2,25 +2,25 @@
 
 #include <unlog/config.hpp>
 
+#ifdef UNEVENTFUL_SSL_ENABLED
 extern "C" {
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <openssl/types.h>
 }
+#endif
 
 namespace un::event {
     using namespace std::chrono_literals;
 
     namespace detail {
-        const char* current_error() {
-            return ERR_error_string(ERR_get_error(), nullptr);
-        }
-
         void setup_ssl_library() {
+#ifdef UNEVENTFUL_SSL_ENABLED
             OPENSSL_init_ssl(0, NULL);
             SSL_load_error_strings();
             OpenSSL_add_all_algorithms();
             OpenSSL_add_all_ciphers();
+#endif
         }
     }  // namespace detail
 

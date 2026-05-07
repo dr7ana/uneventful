@@ -33,6 +33,7 @@ option(BUILD_STATIC_DEPS "Build and link against static dependencies" OFF)
 option(WARNINGS_AS_ERRORS "Treat all warnings as errors. turn off for development, on for release" OFF)
 option(UNEVENT_BUILD_TESTS "Build unevent test suite" ${UNEVENT_IS_TOPLEVEL_PROJECT})
 option(UNEVENTFUL_USE_BUNDLED_LIBEVENT "Build uneventful with the vendored libevent submodule" ON)
+option(UNEVENTFUL_ENABLE_LIBEVENT_SSL "Build uneventful with the vendored libevent ssl support" OFF)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -67,6 +68,10 @@ add_library(unevent
 
     src/loop.cpp
 )
+
+if(UNEVENTFUL_ENABLE_LIBEVENT_SSL)
+    target_compile_definitions(unevent PUBLIC UNEVENTFUL_SSL_ENABLED)
+endif()
 
 target_include_directories(unevent PUBLIC include)
 target_compile_features(unevent PUBLIC cxx_std_23)
