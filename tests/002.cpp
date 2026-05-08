@@ -10,7 +10,7 @@ namespace un::event::test {
     TEST_CASE("event_loop executes call_later once from non-loop thread", "[event_loop][call_later]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::atomic<int> count{0};
 
         std::promise<void> done;
@@ -38,7 +38,7 @@ namespace un::event::test {
     TEST_CASE("event_loop executes call_later immediately when overdue", "[event_loop][call_later]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::promise<bool> p;
         auto fut = p.get_future();
 
@@ -51,7 +51,7 @@ namespace un::event::test {
     TEST_CASE("event_loop defers call_later invoked on loop thread", "[event_loop][call_later]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::promise<int> p;
         auto fut = p.get_future();
         std::atomic<int> stage{0};
@@ -69,7 +69,7 @@ namespace un::event::test {
     TEST_CASE("event_loop executes multiple call_later one-shots", "[event_loop][call_later]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::atomic<int> count{0};
 
         std::promise<void> done;
@@ -94,7 +94,7 @@ namespace un::event::test {
     TEST_CASE("event_loop executes call_later timers with same delay", "[event_loop][call_later]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::atomic<int> count{0};
 
         std::promise<void> done;
@@ -118,7 +118,7 @@ namespace un::event::test {
     TEST_CASE("event_loop handles call_later from multiple threads", "[event_loop][call_later]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
 
         constexpr int threads = 4;
         constexpr int tasks_per_thread = 6;
@@ -154,7 +154,7 @@ namespace un::event::test {
     TEST_CASE("event_loop call_every starts immediately by default", "[event_loop][call_every]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::atomic<int> count{0};
         std::promise<void> ran;
         auto ran_fut = ran.get_future();
@@ -176,7 +176,7 @@ namespace un::event::test {
     TEST_CASE("event_loop call_every respects start/stop semantics", "[event_loop][call_every]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::atomic<int> count{0};
 
         std::promise<void> ran;
@@ -218,14 +218,14 @@ namespace un::event::test {
     TEST_CASE("event_loop call_every can stop from callback", "[event_loop][call_every]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::atomic<int> count{0};
 
         std::promise<void> stopped;
         auto stopped_fut = stopped.get_future();
         std::atomic<bool> stopped_set{false};
 
-        std::shared_ptr<un::event::ev_watcher> watcher;
+        std::shared_ptr<test_loop::ev_watcher> watcher;
         watcher = loop->call_every(
                 10ms,
                 [&] {
@@ -256,7 +256,7 @@ namespace un::event::test {
         constexpr auto interval = 20ms;
         constexpr int samples = 5;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::vector<clock::time_point> times;
         times.reserve(samples);
 
@@ -264,7 +264,7 @@ namespace un::event::test {
         auto done_fut = done.get_future();
         std::atomic<bool> done_set{false};
 
-        std::shared_ptr<un::event::ev_watcher> watcher;
+        std::shared_ptr<test_loop::ev_watcher> watcher;
         watcher = loop->call_every(
                 interval,
                 [&] {
@@ -288,7 +288,7 @@ namespace un::event::test {
     TEST_CASE("event_loop call_every continues after callback exception", "[event_loop][call_every]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::atomic<int> count{0};
         std::atomic<bool> threw{false};
 
@@ -296,7 +296,7 @@ namespace un::event::test {
         auto done_fut = done.get_future();
         std::atomic<bool> done_set{false};
 
-        std::shared_ptr<un::event::ev_watcher> watcher;
+        std::shared_ptr<test_loop::ev_watcher> watcher;
         watcher = loop->call_every(
                 10ms,
                 [&] {
@@ -325,7 +325,7 @@ namespace un::event::test {
         std::atomic<int> count{0};
 
         {
-            auto loop = un::event::event_loop::make();
+            auto loop = test_loop::make();
             loop->call_later(100ms, [&] { count.fetch_add(1); });
         }
 
@@ -340,7 +340,7 @@ namespace un::event::test {
         int stopped_at = 0;
 
         {
-            auto loop = un::event::event_loop::make();
+            auto loop = test_loop::make();
             std::promise<void> ran;
             auto ran_fut = ran.get_future();
             std::atomic<bool> ran_set{false};
@@ -363,8 +363,8 @@ namespace un::event::test {
     TEST_CASE("event_loop can release last owner from loop callback", "[event_loop][lifecycle][regression]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
-        auto owned = std::make_shared<std::shared_ptr<un::event::event_loop>>(loop);
+        auto loop = test_loop::make();
+        auto owned = std::make_shared<std::shared_ptr<test_loop>>(loop);
 
         std::promise<void> callback_done;
         auto callback_done_fut = callback_done.get_future();
@@ -386,8 +386,8 @@ namespace un::event::test {
         std::atomic<int> later_jobs_ran{0};
 
         for (int iteration = 0; iteration < 32; ++iteration) {
-            auto loop = un::event::event_loop::make();
-            auto owned = std::make_shared<std::shared_ptr<un::event::event_loop>>(loop);
+            auto loop = test_loop::make();
+            auto owned = std::make_shared<std::shared_ptr<test_loop>>(loop);
 
             std::promise<void> first_done;
             auto first_done_fut = first_done.get_future();
@@ -415,7 +415,7 @@ namespace un::event::test {
         std::promise<void>* done;
         std::thread::id* thread_id;
         bool* in_loop;
-        un::event::event_loop* loop;
+        test_loop* loop;
 
         ~deleter_probe() {
             if (thread_id)
@@ -430,7 +430,7 @@ namespace un::event::test {
     TEST_CASE("event_loop runs loop_deleter on loop thread", "[event_loop][deleter]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::promise<void> done;
         auto fut = done.get_future();
         std::thread::id dtor_id;
@@ -451,7 +451,7 @@ namespace un::event::test {
     TEST_CASE("event_loop runs wrapped_deleter on loop thread", "[event_loop][deleter]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::promise<void> done;
         auto fut = done.get_future();
         std::thread::id dtor_id;
@@ -482,7 +482,7 @@ namespace un::event::test {
         std::shared_ptr<deleter_probe> ptr;
 
         {
-            auto loop = un::event::event_loop::make();
+            auto loop = test_loop::make();
             ptr = test_helper::make_shared<deleter_probe>(*loop, &done, nullptr, nullptr, nullptr);
         }
 
@@ -499,7 +499,7 @@ namespace un::event::test {
         std::shared_ptr<int> ptr;
 
         {
-            auto loop = un::event::event_loop::make();
+            auto loop = test_loop::make();
             ptr = test_helper::shared_ptr(*loop, new int{1}, [&](int* value) {
                 delete value;
                 done.set_value();

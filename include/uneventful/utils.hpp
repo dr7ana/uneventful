@@ -13,8 +13,15 @@ namespace un::event {
 
     using namespace unlog::literals;
     using namespace un::log::operators;
+    using namespace std::chrono_literals;
 
     inline constexpr size_t thread_bufsize_bytes{1U << 22};
+
+    inline timeval loop_time_to_timeval(std::chrono::microseconds t) {
+        return timeval{
+                .tv_sec = static_cast<decltype(timeval::tv_sec)>(t / 1s),
+                .tv_usec = static_cast<decltype(timeval::tv_usec)>((t % 1s) / 1us)};
+    }
 
     namespace detail {
         inline std::chrono::steady_clock::time_point get_time() {

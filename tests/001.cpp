@@ -9,7 +9,7 @@
 
 namespace un::event::test {
     TEST_CASE("event_loop constructs with backend", "[event_loop][construction]") {
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         REQUIRE(loop);
         REQUIRE(loop->loop());
 
@@ -19,7 +19,7 @@ namespace un::event::test {
     }
 
     TEST_CASE("event_loop thread identity basics", "[event_loop][thread]") {
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         auto main_id = std::this_thread::get_id();
 
         REQUIRE_FALSE(loop->in_event_loop());
@@ -34,7 +34,7 @@ namespace un::event::test {
     TEST_CASE("event_loop executes call on loop thread", "[event_loop][call]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         REQUIRE_FALSE(loop->in_event_loop());
 
         std::promise<bool> p;
@@ -49,7 +49,7 @@ namespace un::event::test {
     TEST_CASE("event_loop executes call inline on loop thread", "[event_loop][call]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::promise<bool> p;
         auto fut = p.get_future();
 
@@ -64,7 +64,7 @@ namespace un::event::test {
     }
 
     TEST_CASE("event_loop returns value from call_get", "[event_loop][call_get]") {
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
 
         auto value = loop->call_get([] { return 42; });
         REQUIRE(value == 42);
@@ -74,7 +74,7 @@ namespace un::event::test {
     }
 
     TEST_CASE("event_loop propagates call_get exceptions", "[event_loop][call_get]") {
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
 
         REQUIRE_THROWS_AS(loop->call_get([]() -> int { throw std::runtime_error("boom"); }), std::runtime_error);
     }
@@ -82,7 +82,7 @@ namespace un::event::test {
     TEST_CASE("event_loop executes call_soon on the loop thread", "[event_loop][call_soon]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         REQUIRE_FALSE(loop->in_event_loop());
 
         std::promise<bool> p;
@@ -97,7 +97,7 @@ namespace un::event::test {
     TEST_CASE("event_loop executes call_soon in FIFO order", "[event_loop][call_soon]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::vector<int> order;
 
         std::promise<void> p;
@@ -117,7 +117,7 @@ namespace un::event::test {
     TEST_CASE("event_loop executes call_soon enqueued from a callback", "[event_loop][call_soon]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::vector<char> order;
 
         std::promise<void> p;
@@ -138,7 +138,7 @@ namespace un::event::test {
     TEST_CASE("event_loop handles call_soon from multiple threads", "[event_loop][call_soon]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
 
         constexpr int threads = 4;
         constexpr int tasks_per_thread = 8;
@@ -174,7 +174,7 @@ namespace un::event::test {
     TEST_CASE("event_loop continues after call_soon exception", "[event_loop][call_soon]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::promise<void> p;
         auto fut = p.get_future();
 
@@ -187,7 +187,7 @@ namespace un::event::test {
     TEST_CASE("event_loop continues after off-thread call exception", "[event_loop][call]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::promise<void> p;
         auto fut = p.get_future();
 
@@ -200,7 +200,7 @@ namespace un::event::test {
     TEST_CASE("event_loop executes call_get inline on loop thread", "[event_loop][call_get]") {
         using namespace std::chrono_literals;
 
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::promise<bool> p;
         auto fut = p.get_future();
 
@@ -214,7 +214,7 @@ namespace un::event::test {
     }
 
     TEST_CASE("event_loop executes call_get with void return", "[event_loop][call_get]") {
-        auto loop = un::event::event_loop::make();
+        auto loop = test_loop::make();
         std::atomic<bool> ran{false};
 
         loop->call_get([&] { ran.store(true); });
