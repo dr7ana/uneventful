@@ -50,15 +50,11 @@ namespace un::event {
       public:
         using ev_channel_type = std::remove_cvref_t<decltype(C)>;
         static_assert(unlog::channel_type<ev_channel_type>);
-        static constexpr bool using_default_channel{
-                std::same_as<ev_channel_type, detail::default_unevent_channel_type>};
 
       private:
         static constexpr auto& log = C;
 
-        unevent_loop()
-            requires using_default_channel
-                : ev_loop{detail::try_make_et_evbase(), ::event_base_free} {
+        unevent_loop() : ev_loop{detail::try_make_et_evbase(), ::event_base_free} {
             unlog::trace(log, "Beginning loop context creation with new ev loop thread");
 
             unlog::debug(log, "Started libevent loop with backend {}", event_base_get_method(ev_loop.get()));
@@ -87,9 +83,7 @@ namespace un::event {
         unevent_loop& operator=(unevent_loop) = delete;
 
       public:
-        [[nodiscard]] static std::shared_ptr<unevent_loop> make()
-            requires using_default_channel
-        {
+        [[nodiscard]] static std::shared_ptr<unevent_loop> make() {
             return std::shared_ptr<unevent_loop>{new unevent_loop{}};
         }
 
