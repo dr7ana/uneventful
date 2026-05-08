@@ -11,7 +11,8 @@ namespace un::event::test {
 
     using namespace un::log::literals;
 
-    using test_loop = unevent_loop<>;
+    inline const auto test_channel = unlog::make_channel(unlog::config<>::make("unevent"));
+    using test_loop = unevent_loop<test_channel>;
 
     struct test_helper {
         template <typename T, typename... Args>

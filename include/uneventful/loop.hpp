@@ -32,8 +32,6 @@ namespace un::event {
 
     namespace detail {
         struct event_base* try_make_et_evbase();
-        inline const auto default_unevent_channel = unlog::make_channel(unlog::config<>::make("unevent"));
-        using default_unevent_channel_type = std::remove_cvref_t<decltype(default_unevent_channel)>;
     }  // namespace detail
 
     using job_hook = std::function<void()>;
@@ -45,13 +43,11 @@ namespace un::event {
 
     using caller_id_t = uint16_t;
 
-    template <auto& C = detail::default_unevent_channel>
+    template <auto& C>
     class unevent_loop final : public std::enable_shared_from_this<unevent_loop<C>> {
-      public:
         using ev_channel_type = std::remove_cvref_t<decltype(C)>;
         static_assert(unlog::channel_type<ev_channel_type>);
 
-      private:
         static constexpr auto& log = C;
 
         unevent_loop() : ev_loop{detail::try_make_et_evbase(), ::event_base_free} {
