@@ -46,7 +46,7 @@ namespace un::event {
     using caller_id_t = uint16_t;
 
     template <auto& C = detail::default_unevent_channel>
-    class event_loop final : public std::enable_shared_from_this<event_loop<C>> {
+    class unevent_loop final : public std::enable_shared_from_this<unevent_loop<C>> {
       public:
         using ev_channel_type = std::remove_cvref_t<decltype(C)>;
         static_assert(unlog::channel_type<ev_channel_type>);
@@ -56,7 +56,7 @@ namespace un::event {
       private:
         static constexpr auto& log = C;
 
-        event_loop()
+        unevent_loop()
             requires using_default_channel
                 : ev_loop{detail::try_make_et_evbase(), ::event_base_free} {
             unlog::trace(log, "Beginning loop context creation with new ev loop thread");
@@ -81,19 +81,19 @@ namespace un::event {
             unlog::info(log, "loop is started");
         }
 
-        event_loop(const event_loop&) = delete;
-        event_loop(event_loop&&) = delete;
-        event_loop& operator=(event_loop&&) = delete;
-        event_loop& operator=(event_loop) = delete;
+        unevent_loop(const unevent_loop&) = delete;
+        unevent_loop(unevent_loop&&) = delete;
+        unevent_loop& operator=(unevent_loop&&) = delete;
+        unevent_loop& operator=(unevent_loop) = delete;
 
       public:
-        [[nodiscard]] static std::shared_ptr<event_loop> make()
+        [[nodiscard]] static std::shared_ptr<unevent_loop> make()
             requires using_default_channel
         {
-            return std::shared_ptr<event_loop>{new event_loop{}};
+            return std::shared_ptr<unevent_loop>{new unevent_loop{}};
         }
 
-        ~event_loop() {
+        ~unevent_loop() {
             unlog::info(log, "Shutting down loop...");
 
             call_get([this]() { shutdown(); });
@@ -105,7 +105,7 @@ namespace un::event {
         }
 
         struct ev_watcher {
-            friend class event_loop;
+            friend class unevent_loop;
             friend struct loop_callbacks;
 
           private:
@@ -129,7 +129,7 @@ namespace un::event {
                         one_off ? 0 : EV_PERSIST,
                         [](evutil_socket_t, short, void* s) {
                             try {
-                                auto* self = reinterpret_cast<event_loop::ev_watcher*>(s);
+                                auto* self = reinterpret_cast<unevent_loop::ev_watcher*>(s);
                                 if (not self->f) {
                                     unlog::critical(log, "Ticker does not have a callback to execute!");
                                     return;
@@ -245,7 +245,7 @@ namespace un::event {
         template <typename Callable>
         [[nodiscard]] std::shared_ptr<ev_watcher> call_every(
                 std::chrono::microseconds interval, Callable&& f, bool start_immediately = true) {
-            return _call_every(interval, std::forward<Callable>(f), event_loop::loop_id, start_immediately);
+            return _call_every(interval, std::forward<Callable>(f), unevent_loop::loop_id, start_immediately);
         }
 
         template <std::invocable Callable>
@@ -351,7 +351,7 @@ namespace un::event {
       private:
         template <std::invocable Callable>
         void add_oneshot_event(std::chrono::microseconds delay, Callable hook) {
-            auto handler = make_handler(event_loop::loop_id);
+            auto handler = make_handler(unevent_loop::loop_id);
             auto& h = *handler;
 
             h.init_event(
@@ -395,7 +395,7 @@ namespace un::event {
 
         std::shared_ptr<ev_watcher> make_handler(caller_id_t _id) {
             clear_old_tickers();
-            auto t = make_shared<event_loop::ev_watcher>();
+            auto t = make_shared<unevent_loop::ev_watcher>();
             tickers[_id].push_back(t);
             return t;
         }
@@ -419,7 +419,7 @@ namespace un::event {
                     0,
                     [](evutil_socket_t, short, void* self) {
                         unlog::trace(log, "processing job queue");
-                        static_cast<event_loop*>(self)->process_job_queue();
+                        static_cast<unevent_loop*>(self)->process_job_queue();
                     },
                     this));
             assert(job_waker);

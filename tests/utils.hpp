@@ -11,7 +11,7 @@ namespace un::event::test {
 
     using namespace un::log::literals;
 
-    using test_loop = event_loop<>;
+    using test_loop = unevent_loop<>;
     static_assert(test_loop::using_default_channel == true);
 
     struct test_helper {
