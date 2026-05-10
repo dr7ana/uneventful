@@ -36,8 +36,15 @@ namespace un::event {
 
     using job_hook = std::function<void()>;
 
-    using job_deque =
-            std::deque<job_hook, allocazam::allocazam_std_allocator<job_hook, allocazam::memory_mode::dynamic>>;
+#if UNEVENT_EMBEDDED
+    using job_allocator = allocazam::
+            allocazam_std_allocator<job_hook, allocazam::memory_mode::dynamic, allocazam::huge_pages::disabled>;
+#else
+    using job_allocator = allocazam::
+            allocazam_std_allocator<job_hook, allocazam::memory_mode::dynamic, allocazam::huge_pages::enabled>;
+#endif
+
+    using job_deque = std::deque<job_hook, job_allocator>;
 
     using event_ptr = std::unique_ptr<::event, deleters::_event>;
 
@@ -181,7 +188,7 @@ namespace un::event {
         std::thread::id loop_thread_id;
 
         event_ptr job_waker;
-        job_deque job_queue;
+        std::deque<job_hook> job_queue;
         std::mutex job_queue_mutex;
 
         std::unordered_map<caller_id_t, std::list<std::weak_ptr<ev_watcher>>> tickers;

@@ -27,6 +27,28 @@ else()
     set(UNEVENT_IS_TOPLEVEL_PROJECT FALSE)
 endif()
 
+string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" uneventful_system_processor)
+
+set(UNEVENT_ARM64 FALSE)
+set(UNEVENT_X86_64 FALSE)
+
+if(uneventful_system_processor STREQUAL "x86_64")
+    set(CMAKE_TARGET_ARCHITECTURE "x86_64" CACHE STRING "target architecture" FORCE)
+    set(UNEVENT_X86_64 TRUE)
+else()
+    if(uneventful_system_processor STREQUAL "aarch64")
+        set(CMAKE_TARGET_ARCHITECTURE "arm64" CACHE STRING "target architecture" FORCE)
+    elseif(uneventful_system_processor MATCHES "^arm")
+        set(CMAKE_TARGET_ARCHITECTURE "arm" CACHE STRING "target architecture" FORCE)
+    else()
+        message(FATAL_ERROR "unevent not supported on on this architecture -- what exactly are you using?")
+    endif()
+    set(UNEVENT_ARM64 TRUE)
+    add_compile_options(
+        "$<$<COMPILE_LANGUAGE:C>:-fsigned-char>"
+        "$<$<COMPILE_LANGUAGE:CXX>:-fsigned-char>")
+endif()
+
 # TODO: not configured yet for shared vs static
 option(BUILD_SHARED_LIBS "Build as shared library" OFF)
 option(BUILD_STATIC_DEPS "Build and link against static dependencies" OFF)
@@ -34,6 +56,7 @@ option(WARNINGS_AS_ERRORS "Treat all warnings as errors. turn off for developmen
 option(UNEVENT_BUILD_TESTS "Build unevent test suite" ${UNEVENT_IS_TOPLEVEL_PROJECT})
 option(UNEVENTFUL_USE_BUNDLED_LIBEVENT "Build uneventful with the vendored libevent submodule" ON)
 option(UNEVENTFUL_ENABLE_LIBEVENT_SSL "Build uneventful with the vendored libevent ssl support" OFF)
+option(UNEVENT_EMBEDDED "Enable uneventful embedded build" OFF)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -87,6 +110,14 @@ target_link_libraries(unevent
     libevent::extra
     libevent::threads
 )
+
+if(UNEVENT_ARM64)
+    target_link_libraries(unevent PUBLIC atomic)
+endif()
+
+if(UNEVENT_EMBEDDED)
+    target_compile_definitions(unevent PUBLIC UNEVENT_EMBEDDED=1)
+endif()
 
 set(warning_flags -Wall -Wextra -Wno-unknown-pragmas -Wno-unused-function -Werror=vla -Wno-deprecated-declaration)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
