@@ -3,10 +3,22 @@ module(
     version = "0.2.0",
 )
 
+bazel_dep(name = "openssl", version = "3.5.5.bcr.4")
 bazel_dep(name = "rules_cc", version = "0.2.20")
-bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "platforms", version = "1.0.0")
+
+# override to use latest commit for gcc-15 pgconfig bug 
+# https://patchwork.yoctoproject.org/project/oe-core/patch/20250426134153.2801555-1-martin.jansa@gmail.com/
 bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
-bazel_dep(name = "unlog", version = "0.0.1")
+git_override(
+    module_name = "rules_foreign_cc",
+    commit = "f68b351c4691e747f889dc5e4c2cac3cd3b66ea2",
+    remote = "https://github.com/bazel-contrib/rules_foreign_cc",
+)
+
+bazel_dep(name = "rules_license", version = "1.0.0")
+bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
+bazel_dep(name = "unlog", version = "0.1.0")
 git_override(
     module_name = "unlog",
     commit = "8541e6185ee39c52aa34e070d78fdc7f84f5cde8",
