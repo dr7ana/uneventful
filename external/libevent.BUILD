@@ -16,14 +16,18 @@ filegroup(
 cmake(
     name = "event",
     cache_entries = {
-        "EVENT__LIBRARY_TYPE": "STATIC",
-        "EVENT__DISABLE_TESTS": "ON",
-        "EVENT__DISABLE_OPENSSL": "ON",
-        "EVENT__DISABLE_MBEDTLS": "ON",
+        "CMAKE_CXX_STANDARD": "23",
+        "CMAKE_POSITION_INDEPENDENT_CODE": "ON",
         "EVENT__DISABLE_BENCHMARK": "ON",
+        "EVENT__DISABLE_MBEDTLS": "ON",
         "EVENT__DISABLE_SAMPLES": "ON",
+        "EVENT__DISABLE_TESTS": "ON",
+        "EVENT__LIBRARY_TYPE": "STATIC",
     },
     lib_source = ":all_srcs",
+    linkopts = [
+        "-pthread",
+    ],
     out_static_libs = select({
         ":debug": [
             "libevent_cored.a",
