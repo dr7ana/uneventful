@@ -11,7 +11,12 @@ namespace un::event::test {
 
     using namespace un::log::literals;
 
-    inline const auto test_channel = unlog::make_channel(unlog::config<>::make("unevent"));
+    using test_log = unlog::configured<unlog::default_global_config>;
+    using channel_config = unlog::config<unlog::options::threadsafe>;
+    using channel_policy = unlog::detail::channel_policy_for<channel_config>;
+    using channel_type = unlog::channel<test_log::config, channel_policy>;
+
+    extern channel_type test_channel;
     using test_loop = unevent_loop<test_channel>;
 
     struct test_helper {

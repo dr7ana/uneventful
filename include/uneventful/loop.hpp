@@ -37,11 +37,17 @@ namespace un::event {
     using job_hook = std::function<void()>;
 
 #if UNEVENT_EMBEDDED
-    using job_allocator = allocazam::
-            allocazam_std_allocator<job_hook, allocazam::memory_mode::dynamic, allocazam::huge_pages::disabled>;
+    using job_allocator = allocazam::allocazam_std_allocator<
+            job_hook,
+            allocazam::memory_mode::dynamic,
+            allocazam::allocation_model::suballocated,
+            allocazam::huge_pages::disabled>;
 #else
-    using job_allocator = allocazam::
-            allocazam_std_allocator<job_hook, allocazam::memory_mode::dynamic, allocazam::huge_pages::enabled>;
+    using job_allocator = allocazam::allocazam_std_allocator<
+            job_hook,
+            allocazam::memory_mode::dynamic,
+            allocazam::allocation_model::suballocated,
+            allocazam::huge_pages::enabled>;
 #endif
 
     using job_deque = std::deque<job_hook, job_allocator>;
